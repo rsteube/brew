@@ -4,6 +4,7 @@
 require "utils/link"
 require "settings"
 require "erb"
+require "yaml"
 
 module Homebrew
   # Helper functions for generating shell completions.
@@ -129,6 +130,7 @@ module Homebrew
       (COMPLETIONS_DIR/"bash/brew").atomic_write generate_bash_completion_file(commands)
       (COMPLETIONS_DIR/"zsh/_brew").atomic_write generate_zsh_completion_file(commands)
       (COMPLETIONS_DIR/"fish/brew.fish").atomic_write generate_fish_completion_file(commands)
+      (COMPLETIONS_DIR/"carapace/brew.yaml").atomic_write generate_carapace_completion_file(commands)
     end
 
     sig { params(command: String).returns(T::Boolean) }
@@ -357,5 +359,26 @@ module Homebrew
 
       ERB.new((TEMPLATE_DIR/"fish.erb").read, trim_mode: ">").result(variables.instance_eval { binding })
     end
-  end
+
+    sig { params(command: String).returns(T.nilable(Hash)) }
+    def self.generate_carapace_subcommand_completion(command)
+      return unless command_gets_completions? command
+      {      
+        "name" => command,
+        "description" => Commands.command_description(command, short: true).gsub("\n", " "),
+        "flags" => command_options(command)
+      }
+    end
+
+    sig { params(commands: T::Array[String]).returns(String) }
+    def self.generate_carapace_completion_file(commands)
+      command = {
+        "name" => "brew",
+        "commands" => commands.map do |command|
+          generate_carapace_subcommand_completion command
+        end
+      }
+      YAML.dump(command)
+    end
+  end  
 end
